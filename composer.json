@@ -16,6 +16,7 @@
         "livewire/livewire": "^3.4",
         "munafio/chatify": "^1.6",
         "pixelrobin/php-feather": "^2.0",
+        "pusher/pusher-php-server": "^7.2",
         "twilio/sdk": "^7.14",
         "tymon/jwt-auth": "^2.1"
     },

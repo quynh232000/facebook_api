@@ -51,6 +51,8 @@ class StoryConttroller extends Controller
         // ->where('created_at', ">=", now()->subDay())
 
         $stories = Story::with('user')->select('stories.*')
+
+            ->where('created_at', ">=", now()->subDay())
             ->join(DB::raw('(SELECT user_id, MAX(created_at) as latest_story_time FROM stories GROUP BY user_id) as grouped_stories'), function ($join) {
                 $join->on('stories.user_id', '=', 'grouped_stories.user_id')
                     ->on('stories.created_at', '=', 'grouped_stories.latest_story_time');
@@ -63,13 +65,13 @@ class StoryConttroller extends Controller
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
-        
-        if($uuid ==""){
-            return Response::json(false,"Missing user uuid");
+
+        if ($uuid == "") {
+            return Response::json(false, "Missing user uuid");
         }
         $user = User::where("uuid", $uuid)->first();
-        $stories = Story::where('user_id',$user->id)->get();
-        return Response::json(true, "Lấy tin viết thành công!", ['stories'=>$stories,'user'=>$user]);
+        $stories = Story::where('user_id', $user->id)->where('created_at', ">=", now()->subDay())->get();
+        return Response::json(true, "Lấy tin viết thành công!", ['stories' => $stories, 'user' => $user]);
     }
 
 }

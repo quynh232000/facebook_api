@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('notifications', function (Blueprint $table) {
+        Schema::create('conversations', function (Blueprint $table) {
             $table->id();
-            $table->string("type");
-            $table->foreignId("user_id")->constrained()->cascadeOnDelete();
-            $table->unsignedBigInteger("from_user_id");
-            $table->text("message");
-            $table->string("url");
-            $table->timestamp("read_at")->nullable();
+            $table->unsignedBigInteger('user1_id');
+            $table->unsignedBigInteger('user2_id');
             $table->timestamps();
         });
     }
@@ -28,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('notifications');
+        Schema::dropIfExists('conversations');
     }
 };

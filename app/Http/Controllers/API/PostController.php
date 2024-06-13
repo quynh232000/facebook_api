@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Events\NewNotification;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Post;
@@ -93,7 +94,7 @@ class PostController extends Controller
 
 
             $result = $this->getSinglePost($post->uuid);
-            $result->message ="Tạo bài viết thành công!";
+            $result->message = "Tạo bài viết thành công!";
             return $result;
             // return Response::json(true, "Tạo bài viết thành công!", $post);
         } catch (\Throwable $th) {
@@ -104,6 +105,10 @@ class PostController extends Controller
 
     public function getList(Request $request)
     {
+
+        $page = $request->page ?? 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
@@ -111,7 +116,8 @@ class PostController extends Controller
 
         $posts = Post::where('is_public', 1)
             ->with(['user', 'post_media', 'group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
-            ->limit(20)
+            ->offset($offset)
+            ->limit($limit)
             ->get()->map(function ($post) {
                 $post->isLikePost = $post->isLikePost();
                 $post->user->friends_count = $post->user->friends_count();
@@ -151,11 +157,23 @@ class PostController extends Controller
         if ($post == null)
             return Response::json(false, "Bài viết không tồn tại!");
         $like = $post->likes()->where('user_id', $user->id)->first();
+
         if ($like == null) {
             $status = "Like";
             $like = $post->likes()->create([
                 'user_id' => $user->id
             ]);
+            if ($user->id != $post->user_id) {
+
+                Notification::create([
+                    'from_user_id' => $user->id,
+                    'user_id' => $post->user_id,
+                    'type' => 'like_post',
+                    'message' => "đã thích bài viết của bạn",
+                    'url' => 'post/' . $post->uuid
+                ]);
+                event(new NewNotification($post->user_id, "$user->first_name $user->last_name đã thích bài viết của bạn"));
+            }
         } else {
             $status = "Unlike";
 
@@ -185,13 +203,16 @@ class PostController extends Controller
             'comment' => $request->comment,
             'post_id' => $request->post_id
         ]);
-        Notification::create([
-            'type' => "comment",
-            'from_user_id' => $user->id,
-            'user_id' => $post->user->id,
-            'message' => $user->first_name . " " . $user->last_name . " đã bình luận một bài viết của bạn!",
-            'url' => "post/" . $post->id,
-        ]);
+        if ($user->id != $post->user_id) {
+            Notification::create([
+                'type' => "comment",
+                'from_user_id' => $user->id,
+                'user_id' => $post->user->id,
+                'message' => "đã bình luận một bài viết của bạn!",
+                'url' => "post/" . $post->uuid,
+            ]);
+            event(new NewNotification($post->user_id, "$user->first_name $user->last_name đã bình luận bài viết của bạn"));
+        }
         return Response::json(true, "Bình luận bài viết thành công!", $comment);
 
 
@@ -243,8 +264,11 @@ class PostController extends Controller
         $postInfo->isLikePost = $postInfo->isLikePost();
         return Response::json(true, "Lấy thông tin bài viết thành công!", $postInfo);
     }
-    public function getPostUser($user_uuid)
+    public function getPostUser($user_uuid, Request $request)
     {
+        $page = $request->page ?? 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
@@ -258,6 +282,8 @@ class PostController extends Controller
 
         $posts = Post::where(['user_id' => $profile->id, 'is_group_post' => 0, 'is_page_post' => 0])
             ->with(['user', 'post_media'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
             ->get()->map(function ($post) {
                 $post->isLikePost = $post->isLikePost();
                 $post->is_saved = $post->is_saved();
@@ -336,6 +362,58 @@ class PostController extends Controller
         return Response::json(true, "Xóa bài viết thành công!");
 
     }
+    public function getSavedPosts(Request $request)
+    {
+        $page = $request->page ?? 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        $user = auth()->user();
+        if ($user == null)
+            return Response::json(false, "Unauthorized");
+        $post_ids = SavePost::where('user_id', $user->id)->pluck('post_id');
+        $posts = Post::whereIn('id', $post_ids)
+            ->with(['user', 'post_media', 'group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
+            ->get()->map(function ($post) {
+                $post->isLikePost = $post->isLikePost();
+                $post->user->friends_count = $post->user->friends_count();
+                $post->user->mutual_friends = $post->user->mutual_friends();
+                $post->is_saved = $post->is_saved();
+                return $post;
+            });
+        return Response::json(true, "Lấy danh sách bài viết đã lưu thành công!", $posts);
+
+    }
+    public function watchList(Request $request)
+    {
+
+        $page = $request->page ?? 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        $user = auth()->user();
+        if ($user == null)
+            return Response::json(false, "Unauthorized");
+
+        $post_ids = PostMedia::where('file_type', 'video')->pluck('post_id');
+
+
+        $posts = Post::whereIn("id", $post_ids)
+            ->where('is_public', 1)
+            ->with(['user', 'group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
+            ->get()->map(function ($post) {
+                $post->isLikePost = $post->isLikePost();
+                $post->user->friends_count = $post->user->friends_count();
+                $post->user->mutual_friends = $post->user->mutual_friends();
+                $post->is_saved = $post->is_saved();
+                $post->post_media = $post->post_media_video();
+                return $post;
+            });
+        return Response::json(true, "Lấy danh sách Video Post thành công!", $posts);
+    }
+
 
 }
 

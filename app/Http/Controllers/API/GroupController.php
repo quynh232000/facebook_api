@@ -50,6 +50,8 @@ class GroupController extends Controller
             return Response::json(false, "Nhóm không tồn tại!");
         }
         $group->is_joined = $group->is_join();
+        $group->user->is_friend = $group->user->is_friend();
+
         return Response::json(true, "Lấy thông tin nhóm thành công!", $group);
 
     }
@@ -83,7 +85,11 @@ class GroupController extends Controller
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
-        $groups = Group::where('user_id', $user->id)->orderBy("created_at", 'desc')->limit(5)->get();
+        $groups = Group::where('user_id', $user->id)->orderBy("created_at", 'desc')->limit(5)->get()
+            ->map(function ($group) {
+                $group->activate_recent = $group->activate_recent();
+                return $group;
+            });
 
         return Response::json(true, "Lấy danh sách nhóm của bạn thành công!", $groups);
 
@@ -144,12 +150,18 @@ class GroupController extends Controller
         if ($user == null)
             return Response::json(false, "Unauthorized");
         $group_ids = GroupMember::where('user_id', $user->id)->pluck("group_id");
-        $groups = Group::whereIn('id', $group_ids)->orderBy("created_at")->limit(10)->get();
+        $groups = Group::whereIn('id', $group_ids)->orderBy("created_at")->limit(10)->get()->map(function ($group) {
+            $group->activate_recent = $group->activate_recent();
+            return $group;
+        });
         return Response::json(true, "Lấy danh sách nhóm bạn tham gia thành công!", $groups);
 
     }
-    public function getPostGroup($group_uuid)
+    public function getPostGroup($group_uuid,Request $request)
     {
+        $page = $request->page ?? 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
@@ -162,7 +174,9 @@ class GroupController extends Controller
         }
 
         $posts = Post::where(['is_public' => 1, 'group_id' => $group->id])
-            ->with(['user', 'post_media','group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
+            ->with(['user', 'post_media', 'group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
             ->get()->map(function ($post) {
                 $post->isLikePost = $post->isLikePost();
                 $post->user->friends_count = $post->user->friends_count();
@@ -187,21 +201,27 @@ class GroupController extends Controller
         if (!($group)) {
             return Response::json(false, "Nhóm không tồn tại!");
         }
-        $post_ids = Post::where('group_id',$group->id)->pluck("id");
+        $post_ids = Post::where('group_id', $group->id)->pluck("id");
         $media = PostMedia::whereIn('post_id', $post_ids)->where('file_type', 'image')->get();
         return Response::json(true, "Lấy ảnh trong nhóm thành công!", $media);
     }
-    public function getPostFeed() {
+    public function getPostFeed(Request $request)
+    {
+        $page = $request->page ?? 1;
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
-       
+
         $my_groups_ids = Group::where("user_id", $user->id)->pluck('id');
         $group_join_ids = GroupMember::where("user_id", $user->id)->pluck('group_id');
         $group_ids = array_unique(array_merge($my_groups_ids->toArray(), $group_join_ids->toArray()));
-        
-        $posts = Post::whereIn( 'group_id' , $group_ids)
-            ->with(['user', 'post_media','group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')->limit(20)
+
+        $posts = Post::whereIn('group_id', $group_ids)
+            ->with(['user', 'post_media', 'group'])->withCount(["likes", 'comments'])->orderBy('created_at', 'desc')
+            ->offset($offset)
+            ->limit($limit)
             ->get()->map(function ($post) {
                 $post->isLikePost = $post->isLikePost();
                 $post->user->friends_count = $post->user->friends_count();
@@ -210,7 +230,8 @@ class GroupController extends Controller
             });
         return Response::json(true, "Lấy danh sách bài viết bảng feed thành công!", $posts);
     }
-    public function deleteGroup($group_uuid)  {
+    public function deleteGroup($group_uuid)
+    {
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
@@ -218,16 +239,16 @@ class GroupController extends Controller
             return Response::json(false, "Vui lòng nhập group_uuid!");
         }
         $group = Group::where('uuid', $group_uuid)->first();
-        if(!$group){
+        if (!$group) {
             return Response::json(false, "Nhóm không tồn tại!");
         }
-        if($group->user_id!= $user->id){
+        if ($group->user_id != $user->id) {
             return Response::json(false, "Bạn không có quyền xóa nhóm này!");
         }
         $group->delete();
-        Post::where('group_id',$group->id)->delete();
-        GroupMember::where('group_id',$group->id)->delete();
-        
+        Post::where('group_id', $group->id)->delete();
+        GroupMember::where('group_id', $group->id)->delete();
+
         return Response::json(true, "Xóa nhóm thành công!", $group);
     }
 }

@@ -39,6 +39,9 @@ class Post extends Model
     public function post_media() : HasMany {
         return $this->hasMany(PostMedia::class);
     }
+    public function post_media_video(){
+        return PostMedia::where(['file_type'=>'video','post_id'=>$this->id])->get();
+    }
     public function likes()
     {
         return $this->hasMany(Like::class);

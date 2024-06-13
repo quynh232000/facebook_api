@@ -40,4 +40,11 @@ class Group extends Model
             return GroupMember::where(['user_id' => $authUserId, 'group_id' => $this->id])->exists();
         }
     }
+    public function activate_recent() {
+        $recentPost = Post::where('group_id', $this->id)
+                          ->orderBy('created_at', 'DESC')
+                          ->first();
+    
+        return $recentPost ? $recentPost->created_at : $this->created_at;
+    }
 }

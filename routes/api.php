@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\API\ChatController;
 use App\Http\Controllers\API\GroupController;
+use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\API\PostController;
 use App\Http\Controllers\API\StoryConttroller;
 use App\Http\Controllers\API\UserController;
@@ -36,6 +38,8 @@ Route::group(['middleware'=>'api'],function () {
         Route::get("/get_single_post/{post_uuid}",[PostController::class,'getSinglePost']);
         Route::get("/save_post/{post_uuid}",[PostController::class,'savePost']);
         Route::get("/delete_post/{post_uuid}",[PostController::class,'deletePost']);
+        Route::get("/get_saved_posts",[PostController::class,'getSavedPosts']);
+        Route::get("/watch_list",[PostController::class,'watchList']);
 
     });
     Route::prefix("/user")->group(function(){
@@ -49,6 +53,13 @@ Route::group(['middleware'=>'api'],function () {
         Route::get("/get_list_friend/{user_uuid}",[UserController::class,'getListFriend']);
         Route::post("/update_thumbnail",[UserController::class,'updateThumbnailUser']);
         Route::post("/change_avatar",[UserController::class,'changeAvatarUser']);
+        Route::prefix('/update')->group(function () {
+            Route::post("/description",[UserController::class,'updateDescriptionUser']);
+        });
+        Route::get("/delete_media/{media_uuid}/{index}",[UserController::class,'deleteMedia']);
+        Route::get("/set_thumbnail/{media_uuid}/{index}",[UserController::class,'setThumbnailUser']);
+        Route::get("/set_avatar/{media_uuid}/{index}",[UserController::class,'setAvatarUser']);
+
     });
     Route::prefix("/story")->group(function(){
         Route::post("/create",[StoryConttroller::class,'create']);
@@ -68,6 +79,19 @@ Route::group(['middleware'=>'api'],function () {
        Route::get('/get_images_group/{group_uuid}',[GroupController::class,'getMediaImageGroup']); 
        Route::get('/get_post_feed',[GroupController::class,'getPostFeed']); 
        Route::get('/delete_group/{group_uuid}',[GroupController::class,'deleteGroup']); 
+
+    });
+    Route::prefix("/notification")->group(function () {
+        Route::get('/list_notifications',[NotificationController::class,'getListNotis']);
+        Route::get('/read_noti/{id}',[NotificationController::class,'readNoti']);
+        Route::get('/count_noti',[NotificationController::class,'countNoti']);
+
+    });
+    Route::prefix(('/chat'))->group(function () {
+        Route::get('/message/{user_uuid}',[ChatController::class,'getMessage']);
+        Route::post('/send_message',[ChatController::class,'sendMessage']);
+        Route::get('/delete_message/{message_id}',[ChatController::class,'deleteMessage']);
+        Route::get('/get_conversations',[ChatController::class,'getConversations']);
 
     });
 });

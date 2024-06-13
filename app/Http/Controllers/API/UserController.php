@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Events\NewNotification;
 use App\Http\Controllers\Controller;
 use App\Models\Friend;
 use App\Models\Notification;
@@ -269,9 +270,10 @@ class UserController extends Controller
             'type' => "friend_request",
             'from_user_id' => $user->id,
             'user_id' => $request->friend_id,
-            'message' => $user->first_name . " " . $user->last_name . " đã gửi cho bạn một lời mời kết bạn!",
-            'url' => "#",
+            'message' =>  "đã gửi cho bạn một lời mời kết bạn!",
+            'url' => "friends?type=requests",
         ]);
+        event(new NewNotification($request->friend_id, "$user->first_name $user->last_name đã gửi cho bạn 1 lời mời kết bạn"));
         return Response::json(true, 'Gửi lời mời kết bạn thành công!');
 
     }
@@ -328,11 +330,11 @@ class UserController extends Controller
         Notification::create([
             'type' => "friend_request_accepted",
             'from_user_id' => $userId,
-            'message' => "$user->first_name $user->last_name đã chấp nhận lời mời kết bạn của bạn.",
+            'message' => "đã chấp nhận lời mời kết bạn của bạn.",
             'user_id' => $request->friend_id,
-            'url' => "#"
+            'url' => "user/".$user->uuid
         ]);
-
+        event(new NewNotification( $request->friend_id, "$user->first_name $user->last_name đã chấp nhận lời mời kết bạn của bạn"));
         return Response::json(true, "Xác nhận trở thành bạn bè của nhau thành công!");
 
     }
@@ -420,10 +422,10 @@ class UserController extends Controller
             'uuid' => Str::uuid(),
             'user_id' => $user->id,
             'status' => 'published',
-            'content' =>$content,
-            'type'=>'change_avatar'
+            'content' => $content,
+            'type' => 'change_avatar'
         ];
-        $post =Post::create($newPost);
+        $post = Post::create($newPost);
         PostMedia::create([
             'uuid' => Str::uuid(),
             'post_id' => $post->id,
@@ -434,5 +436,111 @@ class UserController extends Controller
         return Response::json(true, "Thay đổi ảnh đại diện thành công!", $user);
     }
 
+    public function updateDescriptionUser(Request $request)
+    {
+        $user = auth()->user();
+        if ($user == null)
+            return Response::json(false, "Unauthorized");
+        $validator = Validator::make($request->all(), [
+            'description' => 'required'
+        ]);
+        if ($validator->fails()) {
+            return Response::json(false, "Vui lòng nhập đầy đủ thông tin!", $validator->errors());
+        }
+        $user = User::find($user->id);
+        $user->description = $request->description;
+        $user->save();
+        return Response::json(true, "Thay đổi mô tả thành công!", $user);
+    }
+    public function setAvatarUser($media_uuid, $index)
+    {
+        $user = auth()->user();
+        if ($user == null)
+            return Response::json(false, "Unauthorized");
+        if ($media_uuid == "" || $index == "") {
+            return Response::json(false, "Vui lòng nhập đầy đủ thông tin!");
+        }
+        $media = PostMedia::where('uuid', $media_uuid)->first();
+        if ($media == null) {
+            return Response::json(false, "Post media không tồn tại");
+        }
+        $list = json_decode($media->file);
+        if ($list[$index]) {
+            $user = User::find($user->id);
+            $user->avatar = $list[$index];
+            $user->save();
+
+
+            $content = "Đã cập nhật ảnh đại diện mới";
+            $newPost = [
+                'uuid' => Str::uuid(),
+                'user_id' => $user->id,
+                'status' => 'published',
+                'content' => $content,
+                'type' => 'change_avatar'
+            ];
+            $post = Post::create($newPost);
+            PostMedia::create([
+                'uuid' => Str::uuid(),
+                'post_id' => $post->id,
+                'file_type' => 'image',
+                'file' => json_encode([$list[$index]]),
+                'position' => 'general'
+            ]);
+
+            return Response::json(true, "Thay đổi ảnh đại diện thành công!", $user);
+        } else {
+            return Response::json(false, "Hình ảnh không tồn tại!");
+        }
+
+    }
+    public function setThumbnailUser($media_uuid, $index)
+    {
+        $user = auth()->user();
+        if ($user == null)
+            return Response::json(false, "Unauthorized");
+        if ($media_uuid == "" || $index == "") {
+            return Response::json(false, "Vui lòng nhập đầy đủ thông tin!");
+        }
+        $media = PostMedia::where('uuid', $media_uuid)->first();
+        if ($media == null) {
+            return Response::json(false, "Post media không tồn tại");
+        }
+        $list = json_decode($media->file);
+        if ($list[$index]) {
+            $user = User::find($user->id);
+            $user->thumbnail = $list[$index];
+            $user->save();
+            return Response::json(true, "Thay đổi ảnh bìa thành công!", $user);
+        } else {
+            return Response::json(false, "Hình ảnh không tồn tại!");
+        }
+
+    }
+    public function deleteMedia($media_uuid, $index)
+    {
+        $user = auth()->user();
+        if ($user == null)
+            return Response::json(false, "Unauthorized");
+        if ($media_uuid == "" || $index == "") {
+            return Response::json(false, "Vui lòng nhập đầy đủ thông tin!");
+        }
+        $media = PostMedia::where('uuid', $media_uuid)->first();
+        if ($media == null) {
+            return Response::json(false, "Post media không tồn tại");
+        }
+        $list = json_decode($media->file);
+        if (count($list) == 1) {
+            $media->delete();
+            return Response::json(true, "Xóa media thành công!");
+        } else {
+            array_splice($list,$index,1);
+            // return $list;
+            $media->file = json_encode($list);
+            $media->save();
+            return Response::json(true, "Xóa media thành công!", $media);
+        }
+
+    }
 
 }

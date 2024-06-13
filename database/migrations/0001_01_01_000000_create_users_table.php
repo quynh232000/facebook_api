@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string("thumbnail")->nullable();
             $table->enum("gender",['male','female','other'])->nullable();
             $table->string("phone_number")->nullable();
-            $table->enum("relationship",["single","merried","dating"])->nullable();
+            $table->enum("relationship",["single","married","dating"])->nullable();
             $table->string("location")->nullable();
             $table->string("address")->nullable();
             $table->string("description")->nullable();
