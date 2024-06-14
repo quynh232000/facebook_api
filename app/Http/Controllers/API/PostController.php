@@ -142,18 +142,16 @@ class PostController extends Controller
         // ]);
 
     }
-    public function likePost(Request $request)
+    public function likePost($post_id)
     {
         $user = auth()->user();
         if ($user == null)
             return Response::json(false, "Unauthorized");
-        $validator = validator::make($request->all(), [
-            'post_id' => 'required'
-        ]);
-        if ($validator->fails()) {
-            return Response::json(false, "Vui lòng nhập đầy đủ thông tin!", $validator->errors());
+       
+        if ($post_id=="") {
+            return Response::json(false, "Vui lòng nhập đầy đủ thông tin!");
         }
-        $post = Post::find($request->post_id);
+        $post = Post::find($post_id);
         if ($post == null)
             return Response::json(false, "Bài viết không tồn tại!");
         $like = $post->likes()->where('user_id', $user->id)->first();

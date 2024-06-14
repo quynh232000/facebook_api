@@ -224,7 +224,7 @@ class UserController extends Controller
         $friendIds2 = Friend::where('friend_id', $userId)->pluck('user_id');
         $friendIds = $friendIds1->merge($friendIds2)->unique();
         $friendIds[] = $userId;
-        $users = User::whereNotIn('id', $friendIds)->get()->map(function ($user) {
+        $users = User::whereNotIn('id', $friendIds)->latest()->get()->map(function ($user) {
             $user->friends_count = $user->friends_count();
             $user->mutual_friends = $user->mutual_friends();
             return $user;

@@ -29,7 +29,7 @@ Route::group(['middleware'=>'api'],function () {
         Route::get("/list",[PostController::class,'getList']);
         Route::get("/list_post_user/{user_uuid}",[PostController::class,'getPostUser']);
         Route::post("/create",[PostController::class,'create']);
-        Route::get("/like_post",[PostController::class,'likePost']);
+        Route::get("/like_post/{post_id}",[PostController::class,'likePost']);
         Route::get("/dislike_post",[PostController::class,'dislikePost']);
         Route::post("/comment",[PostController::class,'commentPost']);
         Route::get("/get_list_comment/{post_id}",[PostController::class,'getListComment']);

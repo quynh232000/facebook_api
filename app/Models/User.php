@@ -65,9 +65,10 @@ class User extends Authenticatable implements JWTSubject
     ];
     public function is_friend()
     {
+        $auth_id = auth()->id();
         $status = "new";
-        $sendRequest = Friend::where(['friend_id' => $this->id])->first();
-        $requestFriend = Friend::where(['user_id' => $this->id])->first();
+        $sendRequest = Friend::where(['friend_id' => $this->id,'user_id'=>$auth_id])->first();
+        $requestFriend = Friend::where(['user_id' => $this->id,'friend_id'=>$auth_id])->first();
         if ($sendRequest) {
             $status = $sendRequest->status == 'accepted' ? "accepted" : 'you_send';
         }
